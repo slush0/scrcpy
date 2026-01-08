@@ -44,6 +44,7 @@
 #ifdef HAVE_V4L2
 # include "v4l2_sink.h"
 #endif
+#include "frame_pipe_sink.h"
 
 struct scrcpy {
     struct sc_server server;
@@ -59,6 +60,7 @@ struct scrcpy {
     struct sc_v4l2_sink v4l2_sink;
     struct sc_delay_buffer v4l2_buffer;
 #endif
+    struct sc_frame_pipe_sink frame_pipe_sink;
     struct sc_controller controller;
     struct sc_file_pusher file_pusher;
 #ifdef HAVE_USB
@@ -403,6 +405,7 @@ scrcpy(struct scrcpy_options *options) {
 #ifdef HAVE_V4L2
     bool v4l2_sink_initialized = false;
 #endif
+    bool frame_pipe_sink_initialized = false;
     bool video_demuxer_started = false;
     bool audio_demuxer_started = false;
 #ifdef HAVE_USB
@@ -594,6 +597,7 @@ scrcpy(struct scrcpy_options *options) {
 #ifdef HAVE_V4L2
     needs_video_decoder |= !!options->v4l2_device;
 #endif
+    needs_video_decoder |= !!options->frame_pipe_sink;
     if (needs_video_decoder) {
         sc_decoder_init(&s->video_decoder, "video");
         sc_packet_source_add_sink(&s->video_demuxer.packet_source,
@@ -870,6 +874,18 @@ aoa_complete:
     }
 #endif
 
+    // Frame pipe sink - receives decoded YUV frames (like v4l2)
+    if (options->frame_pipe_sink) {
+        if (!sc_frame_pipe_sink_init(&s->frame_pipe_sink, options->frame_pipe_sink)) {
+            goto end;
+        }
+
+        struct sc_frame_source *src = &s->video_decoder.frame_source;
+        sc_frame_source_add_sink(src, &s->frame_pipe_sink.frame_sink);
+
+        frame_pipe_sink_initialized = true;
+    }
+
     // Now that the header values have been consumed, the socket(s) will
     // receive the stream(s). Start the demuxer(s).
 
@@ -1020,6 +1036,10 @@ end:
         sc_v4l2_sink_destroy(&s->v4l2_sink);
     }
 #endif
+
+    if (frame_pipe_sink_initialized) {
+        sc_frame_pipe_sink_destroy(&s->frame_pipe_sink);
+    }
 
 #ifdef HAVE_USB
     if (aoa_hid_initialized) {

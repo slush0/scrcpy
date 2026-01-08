@@ -84,6 +84,7 @@ else
     src += [
         'src/sys/unix/file.c',
         'src/sys/unix/process.c',
+        'src/frame_pipe_sink.c',
     ]
     if host_machine.system() == 'darwin'
         conf.set('_DARWIN_C_SOURCE', true)

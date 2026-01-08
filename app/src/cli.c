@@ -51,6 +51,7 @@ enum {
     OPT_VIDEO_ENCODER,
     OPT_POWER_OFF_ON_CLOSE,
     OPT_V4L2_SINK,
+    OPT_FRAME_PIPE_SINK,
     OPT_DISPLAY_BUFFER,
     OPT_VIDEO_BUFFER,
     OPT_V4L2_BUFFER,
@@ -962,6 +963,13 @@ static const struct sc_option options[] = {
         .argdesc = "/dev/videoN",
         .text = "Output to v4l2loopback device.\n"
                 "This feature is only available on Linux.",
+    },
+    {
+        .longopt_id = OPT_FRAME_PIPE_SINK,
+        .longopt = "frame-pipe-sink",
+        .argdesc = "/path/to/fifo",
+        .text = "Output decoded YUV420P frames to a named pipe.\n"
+                "Uses scrcpy's internal decoder - same latency as display.",
     },
     {
         .longopt_id = OPT_V4L2_BUFFER,
@@ -2695,6 +2703,9 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                      "platform).");
                 return false;
 #endif
+            case OPT_FRAME_PIPE_SINK:
+                opts->frame_pipe_sink = optarg;
+                break;
             case OPT_V4L2_BUFFER:
 #ifdef HAVE_V4L2
                 if (!parse_buffering_time(optarg, &opts->v4l2_buffer)) {
@@ -2876,8 +2887,8 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
     }
 
     if (opts->video && !opts->video_playback && !opts->record_filename
-            && !v4l2) {
-        LOGI("No video playback, no recording, no V4L2 sink: video disabled");
+            && !v4l2 && !opts->frame_pipe_sink) {
+        LOGI("No video playback, no recording, no V4L2/frame-pipe sink: video disabled");
         opts->video = false;
     }
 
